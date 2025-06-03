@@ -6,6 +6,7 @@ This is a simple web application built with Flask and Plotly to visualize Black-
 
 ## Features
 
+*   EUROPEAN-STYLE OPTIONS ONLY!!
 *   Calculate Theoretical Black-Scholes option prices.
 *   Run Monte Carlo simulations (up to 100,000 paths) to estimate option prices.
 *   Visualize simulated stock price paths and corresponding option price evolution using interactive Plotly graphs.
