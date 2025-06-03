@@ -12,16 +12,14 @@ This is a simple web application built with Flask and Plotly to visualize Black-
     *   90% Confidence Interval for Final Stock Price
     *   Average Final Option Price
     *   Standard Deviation of Final Option Prices
-*   User-friendly interface to input option parameters (volatility, underlying price, strike price, time to expiration, risk-free rate, option type).
-*   Loading animation for long calculations.
 
 ## Setup and Installation
 
 1.  **Clone the repository:**
 
     ```bash
-    git clone <your_repository_url>
-    cd <your_repository_name>
+    git clone https://github.com/jasonli04/BSM-Monte-Carlo-Options-Visualizer
+    cd BSM-Monte-Carlo-Options-Visualizer
     ```
 
 2.  **Create a virtual environment (recommended):
