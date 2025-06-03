@@ -280,7 +280,8 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     )
 
     fig.update_xaxes(title_text=x_axis_title, row=1, col=1,
-                     range=[0, total_duration_in_unit], fixedrange=True) # Prevent panning outside the defined range
+                     range=[0, total_duration_in_unit], fixedrange=False,
+                     minallowed=0, maxallowed=total_duration_in_unit) # Allow zooming/panning, but restrict panning range
     # Auto-scale Y for stock price, include 0 and strike
     stock_y_min = np.min(representative_paths)
     stock_y_max = np.max(representative_paths)
@@ -291,7 +292,8 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     fig.update_yaxes(title_text='Stock Price ($)', row=1, col=1, range=y1_range_adjusted)
 
     fig.update_xaxes(title_text=x_axis_title, row=1, col=2,
-                     range=[0, total_duration_in_unit], fixedrange=True) # Prevent panning outside the defined range
+                     range=[0, total_duration_in_unit], fixedrange=False,
+                     minallowed=0, maxallowed=total_duration_in_unit) # Allow zooming/panning, but restrict panning range
     # Auto-scale Y for option price, include 0 and theoretical price
     option_y_min = np.min(representative_option_prices)
     option_y_max = np.max(representative_option_prices)
