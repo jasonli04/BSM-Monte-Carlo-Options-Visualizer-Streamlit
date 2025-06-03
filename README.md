@@ -18,8 +18,8 @@ This is a simple web application built with Flask and Plotly to visualize Black-
 1.  **Clone the repository:**
 
     ```bash
-    git clone <your_repository_url>
-    cd <your_repository_name>
+    git clone https://github.com/jasonli04/BSM-Monte-Carlo-Options-Visualizer
+    cd BSM-Monte-Carlo-Options-Visualizer
     ```
 
 2.  **Create a virtual environment (recommended):
