@@ -1,6 +1,6 @@
 # Black-Scholes Option Pricing Visualizer
 
-This is a simple web application built with Flask and Plotly to visualize Black-Scholes option pricing using a Monte Carlo simulation.
+This is a simple web application built with Flask and Plotly to visualize Black-Scholes option pricing using a Geometric Brownian Motion Monte Carlo simulation.
 
 <img width="936" alt="image" src="https://github.com/user-attachments/assets/16a16db0-eb70-4438-a8ab-d815017e0f8f" />
 
