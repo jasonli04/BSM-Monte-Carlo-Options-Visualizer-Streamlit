@@ -225,13 +225,53 @@
             line-height: 1.5; /* Improve readability */
         }
 
+        .option-prices {
+            background-color: #f8f9fa;
+            padding: 15px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            border: 1px solid #e9ecef;
+        }
+
+        .option-prices h3 {
+            color: #5a67d8;
+            margin-top: 0;
+            margin-bottom: 15px;
+        }
+
+        .option-prices p {
+            margin-bottom: 8px;
+            line-height: 1.5;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+
+        th, td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+
+        th {
+            background-color: #f2f2f2;
+            color: #333;
+        }
+
+        tbody tr:nth-child(even) {
+            background-color: #f9f9f9;
+        }
+
     </style>
 </head>
 <body>
     <div class="loading-overlay" id="loading-overlay">
         <div class="loading-content">
             <div class="spinner"></div>
-            <div class="loading-text">Calculating Monte Carlo simulations...</div>
+            <div class="loading-text">Running Monte Carlo Simulations...</div>
         </div>
     </div>
 
@@ -272,14 +312,6 @@
                     <input type="number" step="0.01" name="risk_free_rate" value="{{ risk_free_rate|default('0.05') }}" required>
                 </div>
                 
-                <div class="form-group">
-                    <label for="option_type">Option Type:</label>
-                    <select name="option_type">
-                        <option value="call" {% if option_type|default('call') == 'call' %}selected{% endif %}>Call</option>
-                        <option value="put" {% if option_type|default('call') == 'put' %}selected{% endif %}>Put</option>
-                    </select>
-                </div>
-                
                 <button type="submit">Calculate and Visualize</button>
             </form>
         </div>
@@ -291,21 +323,52 @@
             {% if plot_div %}
             <div class="results">
                 <div class="price-info">
-                    <h2>Results</h2>
-                    <p>Theoretical Black-Scholes Price: ${{ "%.2f"|format(theoretical_price) }}</p>
-                    <p>Monte Carlo Price: ${{ "%.2f"|format(mc_price) }}</p>
+                    <h2>Option Prices and Statistics</h2>
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Metric</th>
+                                <th>Call Option</th>
+                                <th>Put Option</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>Theoretical Black-Scholes Price</td>
+                                <td>${{ "%.2f"|format(call_theoretical_price) }}</td>
+                                <td>${{ "%.2f"|format(put_theoretical_price) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Monte Carlo Price</td>
+                                <td>${{ "%.2f"|format(call_mc_price) }}</td>
+                                <td>${{ "%.2f"|format(put_mc_price) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Probability of being In-The-Money (ITM)</td>
+                                <td>{{ "%.2f"|format(call_prob_itm) }}%</td>
+                                <td>{{ "%.2f"|format(put_prob_itm) }}%</td>
+                            </tr>
+                            <tr>
+                                <td>Average Final Price</td>
+                                <td>${{ "%.2f"|format(avg_final_call_price) }}</td>
+                                <td>${{ "%.2f"|format(avg_final_put_price) }}</td>
+                            </tr>
+                            <tr>
+                                <td>Standard Deviation</td>
+                                <td>${{ "%.2f"|format(std_final_call_price) }}</td>
+                                <td>${{ "%.2f"|format(std_final_put_price) }}</td>
+                            </tr>
+                            <tr>
+                                <td>90% Confidence Interval</td>
+                                <td>[${{ "%.2f"|format(final_call_ci_lower) }}, ${{ "%.2f"|format(final_call_ci_upper) }}]</td>
+                                <td>[${{ "%.2f"|format(final_put_ci_lower) }}, ${{ "%.2f"|format(final_put_ci_upper) }}]</td>
+                            </tr>
+                        </tbody>
+                    </table>
                 </div>
                 
                 <div class="plot-container">
                     {{ plot_div | safe }}
-                </div>
-
-                <div class="statistics">
-                    <h2>Monte Carlo Simulation Statistics (at Expiration)</h2>
-                    <p>Probability of being In-The-Money (ITM): {{ "%.2f"|format(prob_itm) }}%</p>
-                    <p>90% Confidence Interval for Final Stock Price: [${{ "%.2f"|format(final_stock_ci_lower) }}, ${{ "%.2f"|format(final_stock_ci_upper) }}]</p>
-                    <p>Average Final Option Price: ${{ "%.2f"|format(avg_final_option_price) }}</p>
-                    <p>Standard Deviation of Final Option Prices: ${{ "%.2f"|format(std_final_option_price) }}</p>
                 </div>
             </div>
             {% endif %}

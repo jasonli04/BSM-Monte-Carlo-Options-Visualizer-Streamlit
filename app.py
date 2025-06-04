@@ -39,19 +39,23 @@ def black_scholes_vectorized(S, K, T, r, sigma, option_type='call'):
         price = K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
     return price
 
-def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, risk_free_rate=0.05, option_type='call', time_value=1, time_unit='years'):
+def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, risk_free_rate=0.05, time_value=1, time_unit='years'):
     bs = BlackScholes(vol, underlying_price, strike_price, time_to_exp, risk_free_rate)
-    theoretical_price = bs.calcPrice(option_type)
     
-    # Run Monte Carlo simulation with 1000 paths
+    # Calculate both call and put theoretical prices
+    call_theoretical_price = bs.calcPrice('call')
+    put_theoretical_price = bs.calcPrice('put')
+    
+    # Run Monte Carlo simulation for both call and put
     num_simulations = 100000
-    mc_price, paths = bs.monte_carlo_simulation(num_simulations, option_type)
+    call_mc_price, paths = bs.monte_carlo_simulation(num_simulations, 'call')
+    put_mc_price, _ = bs.monte_carlo_simulation(num_simulations, 'put')
 
     # Create time points for x-axis (initial, in years)
     time_points = np.linspace(0, time_to_exp, paths.shape[1])
 
     # Calculate total duration in the selected unit for x-axis range
-    total_duration_in_unit = time_value # Default to years if not specified elsewhere
+    total_duration_in_unit = time_value
     if time_unit == 'months':
         total_duration_in_unit = time_value
         x_axis_title = 'Time (months)'
@@ -69,246 +73,315 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         x_axis_title = 'Time (years)'
         x_axis_unit_only = 'years'
 
-    # Adjust time_points to be in the selected unit for plotting
-    # Currently time_points is 0 to time_to_exp (in years) with paths.shape[1] steps
-    # Need to scale this to 0 to total_duration_in_unit
     scaled_time_points = np.linspace(0, total_duration_in_unit, paths.shape[1])
 
-    # Select 20 representative paths (every 5th percentile)
+    # Select 20 representative paths
     percentile_indices = np.linspace(0, num_simulations-1, 20, dtype=int)
     representative_paths = paths[percentile_indices]
 
-    # Calculate option prices at each time step for all 1000 paths using the vectorized function
-    # Create a grid of parameters for vectorized calculation
-    S_grid = paths # Underlying price changes over time and per path
-    K_grid = np.full_like(paths, strike_price) # Strike price is constant
-    # Time remaining: T - time_points (broadcasts time_points across paths)
-    T_grid = time_to_exp - time_points # Needs broadcasting
-    T_grid = np.maximum(T_grid, 1e-10) # Avoid T=0 issues
-    r_grid = np.full_like(paths, risk_free_rate) # Risk-free rate is constant
-    sigma_grid = np.full_like(paths, vol) # Volatility is constant
-
-    # Calculate option prices using the vectorized function
-    # Need to handle broadcasting carefully or loop over time steps for T_grid
-    # Let's loop over time steps, but use the vectorized BS for each step
-    option_prices = np.zeros_like(paths)
+    # Calculate option prices for both call and put
+    call_option_prices = np.zeros_like(paths)
+    put_option_prices = np.zeros_like(paths)
+    
     for t_idx in range(paths.shape[1]):
-         time_rem = time_to_exp - time_points[t_idx]
-         if time_rem > 1e-10: # Use a small epsilon instead of 0 for time remaining
-              option_prices[:, t_idx] = black_scholes_vectorized(
-                  S=paths[:, t_idx],
-                  K=strike_price,
-                  T=time_rem,
-                  r=risk_free_rate,
-                  sigma=vol,
-                  option_type=option_type
-              )
-         else:
-             # At expiration, calculate payoff (vectorized)
-             if option_type.lower() == 'call':
-                 option_prices[:, t_idx] = np.maximum(paths[:, t_idx] - strike_price, 0)
-             else:
-                 option_prices[:, t_idx] = np.maximum(strike_price - paths[:, t_idx], 0)
+        time_rem = time_to_exp - time_points[t_idx]
+        if time_rem > 1e-10:
+            call_option_prices[:, t_idx] = black_scholes_vectorized(
+                S=paths[:, t_idx],
+                K=strike_price,
+                T=time_rem,
+                r=risk_free_rate,
+                sigma=vol,
+                option_type='call'
+            )
+            put_option_prices[:, t_idx] = black_scholes_vectorized(
+                S=paths[:, t_idx],
+                K=strike_price,
+                T=time_rem,
+                r=risk_free_rate,
+                sigma=vol,
+                option_type='put'
+            )
+        else:
+            # At expiration, calculate payoffs
+            call_option_prices[:, t_idx] = np.maximum(paths[:, t_idx] - strike_price, 0)
+            put_option_prices[:, t_idx] = np.maximum(strike_price - paths[:, t_idx], 0)
 
-    # Get representative option price paths corresponding to the representative stock paths
-    representative_option_prices = option_prices[percentile_indices]
+    # Get representative option price paths
+    representative_call_prices = call_option_prices[percentile_indices]
+    representative_put_prices = put_option_prices[percentile_indices]
 
-    # Calculate 90% confidence intervals
+    # Calculate confidence intervals
     stock_lower_bound_path = np.percentile(paths, 5, axis=0)
     stock_upper_bound_path = np.percentile(paths, 95, axis=0)
-    option_lower_bound = np.percentile(option_prices, 5, axis=0)
-    option_upper_bound = np.percentile(option_prices, 95, axis=0)
+    call_lower_bound = np.percentile(call_option_prices, 5, axis=0)
+    call_upper_bound = np.percentile(call_option_prices, 95, axis=0)
+    put_lower_bound = np.percentile(put_option_prices, 5, axis=0)
+    put_upper_bound = np.percentile(put_option_prices, 95, axis=0)
 
     # Calculate statistics at expiration
     final_stock_prices = paths[:, -1]
-    final_option_prices = option_prices[:, -1]
+    final_call_prices = call_option_prices[:, -1]
+    final_put_prices = put_option_prices[:, -1]
 
-    # Probability of being In-The-Money (ITM) at expiration
-    if option_type.lower() == 'call':
-        # For a call option, ITM if final stock price > strike price
-        itm_count = np.sum(final_stock_prices > strike_price)
-    else: # put option
-        # For a put option, ITM if final stock price < strike price
-        itm_count = np.sum(final_stock_prices < strike_price)
-    prob_itm = (itm_count / num_simulations) * 100.0
+    # Probability of being ITM
+    call_itm_count = np.sum(final_stock_prices > strike_price)
+    put_itm_count = np.sum(final_stock_prices < strike_price)
+    call_prob_itm = (call_itm_count / num_simulations) * 100.0
+    put_prob_itm = (put_itm_count / num_simulations) * 100.0
 
     # 90% Confidence Interval for Final Stock Price
     final_stock_ci_lower = np.percentile(final_stock_prices, 5)
     final_stock_ci_upper = np.percentile(final_stock_prices, 95)
 
-    # Average and Standard Deviation of final option prices
-    avg_final_option_price = np.mean(final_option_prices)
-    std_final_option_price = np.std(final_option_prices)
+    # 90% Confidence Interval for Final Call Option Price
+    final_call_ci_lower = np.percentile(final_call_prices, 5)
+    final_call_ci_upper = np.percentile(final_call_prices, 95)
 
-    # DEBUG prints (optional, but good for verification)
-    # print("DEBUG: time_points shape:", time_points.shape)
-    # print("DEBUG: representative_paths shape:", representative_paths.shape)
-    # print("DEBUG: representative_option_prices shape:", representative_option_prices.shape)
-    # print("DEBUG: representative_option_prices sample (first 3 paths, first 10 steps):")
-    # print(representative_option_prices[:3, :10])
-    # print("DEBUG: average stock path shape:", np.mean(paths, axis=0).shape)
-    # print("DEBUG: average option price path shape:", np.mean(option_prices, axis=0).shape)
-    # print("DEBUG: strike_price:", strike_price)
-    # print("DEBUG: theoretical_price:", theoretical_price)
-    # print("DEBUG: stock_lower_bound_path sample (first 10 steps):", stock_lower_bound_path[:10])
-    # print("DEBUG: stock_upper_bound_path sample (first 10 steps):", stock_upper_bound_path[:10])
-    # print("DEBUG: option_lower_bound shape:", option_lower_bound.shape)
-    # print("DEBUG: option_upper_bound sample (first 10 steps):", option_upper_bound[:10])
+    # 90% Confidence Interval for Final Put Option Price
+    final_put_ci_lower = np.percentile(final_put_prices, 5)
+    final_put_ci_upper = np.percentile(final_put_prices, 95)
 
+    # Create subplot figure - 2 rows, 2 columns (bottom row spans both columns)
+    fig = make_subplots(
+        rows=2, cols=2,
+        subplot_titles=('Call Option Price Evolution', 'Put Option Price Evolution', 'Stock Price Paths'),
+        specs=[[{}, {}], [{"colspan": 2}, None]],
+        vertical_spacing=0.1,
+        shared_xaxes=True # Share x-axes vertically
+    )
 
-    # Create subplot figure - 1 row, 2 columns
-    fig = make_subplots(rows=1, cols=2,
-                        subplot_titles=('Stock Price Paths (20 Representative Paths)',
-                                      'Option Price Evolution (20 Representative Paths)'),
-                        horizontal_spacing=0.1)
+    # Define colors for paths
+    colors = plotly.colors.qualitative.Plotly
 
-    # Define a list of distinct colors for the 20 paths
-    colors = plotly.colors.qualitative.Plotly # Using a built-in Plotly color sequence
-
-    # Add stock price paths (20 representative) to the first subplot
-    for i, path in enumerate(representative_paths):
-        trace_name = f'Stock Path {percentile_indices[i]}'
+    # Add call option paths
+    for i, path in enumerate(representative_call_prices):
+        trace_name = f'Call Path {percentile_indices[i]}'
         fig.add_trace(
             go.Scatter(
-                x=scaled_time_points, y=path, mode='lines', line=dict(color=colors[i % len(colors)], width=1.5), showlegend=False, # Use a color from the list
-                xaxis='x', yaxis='y',
+                x=scaled_time_points, y=path, mode='lines',
+                line=dict(color=colors[i % len(colors)], width=1.5),
+                showlegend=False,
                 name=trace_name,
                 hovertemplate=f'<b>{trace_name}</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
             ),
             row=1, col=1
         )
 
-    # Add average stock path to the first subplot
+    # Add put option paths
+    for i, path in enumerate(representative_put_prices):
+        trace_name = f'Put Path {percentile_indices[i]}'
+        fig.add_trace(
+            go.Scatter(
+                x=scaled_time_points, y=path, mode='lines',
+                line=dict(color=colors[i % len(colors)], width=1.5),
+                showlegend=False,
+                name=trace_name,
+                hovertemplate=f'<b>{trace_name}</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+            ),
+            row=1, col=2
+        )
+
+    # Add average paths for call options
     fig.add_trace(
         go.Scatter(
-            x=scaled_time_points, y=np.mean(paths, axis=0), mode='lines', name='Average Stock Path', line=dict(color='red', width=2),
-            xaxis='x', yaxis='y',
+            x=scaled_time_points, y=np.mean(call_option_prices, axis=0),
+            mode='lines', name='Average Call Price',
+            line=dict(color='red', width=2),
+            hovertemplate=f'<b>Average Call Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=1
+    )
+
+    # Add call option confidence interval bounds
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=call_lower_bound,
+            mode='lines', name='90% CI (Call)',
+            line=dict(color='#444', width=1.5, dash=None),
+            showlegend=False,
+            hovertemplate=f'<b>90% CI (Call - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=1
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=call_upper_bound,
+            mode='lines', name='90% CI (Call)',
+            line=dict(color='#444', width=1.5, dash=None),
+            showlegend=False,
+            hovertemplate=f'<b>90% CI (Call - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=1
+    )
+
+    # Add average paths for put options
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=np.mean(put_option_prices, axis=0),
+            mode='lines', name='Average Put Price',
+            line=dict(color='red', width=2),
+            hovertemplate=f'<b>Average Put Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=2
+    )
+
+    # Add put option confidence interval bounds
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=put_lower_bound,
+            mode='lines', name='90% CI (Put)',
+            line=dict(color='#444', width=1.5, dash=None),
+            showlegend=False,
+            hovertemplate=f'<b>90% CI (Put - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=2
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=put_upper_bound,
+            mode='lines', name='90% CI (Put)',
+            line=dict(color='#444', width=1.5, dash=None),
+            showlegend=False,
+            hovertemplate=f'<b>90% CI (Put - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=2
+    )
+
+    # Add theoretical prices
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=np.full_like(scaled_time_points, call_theoretical_price),
+            mode='lines', name='Theoretical Call Price',
+            line=dict(color='green', dash='dash', width=2),
+            hovertemplate=f'<b>Theoretical Call Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=1
+    )
+
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=np.full_like(scaled_time_points, put_theoretical_price),
+            mode='lines', name='Theoretical Put Price',
+            line=dict(color='green', dash='dash', width=2),
+            hovertemplate=f'<b>Theoretical Put Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+        ),
+        row=1, col=2
+    )
+
+    # Add stock price paths to the bottom row
+    for i, path in enumerate(representative_paths):
+        trace_name = f'Stock Path {percentile_indices[i]}'
+        fig.add_trace(
+            go.Scatter(
+                x=scaled_time_points, y=path, mode='lines',
+                line=dict(color=colors[i % len(colors)], width=1.5),
+                showlegend=False,
+                name=trace_name,
+                hovertemplate=f'<b>{trace_name}</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
+            ),
+            row=2, col=1
+        )
+
+    # Add average stock path
+    fig.add_trace(
+        go.Scatter(
+            x=scaled_time_points, y=np.mean(paths, axis=0),
+            mode='lines', name='Average Stock Path',
+            line=dict(color='red', width=2),
             hovertemplate=f'<b>Average Stock Path</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
-        row=1, col=1
+        row=2, col=1
     )
 
-    # Add stock price confidence interval bounds to the first subplot
+    # Add stock price confidence interval bounds
     fig.add_trace(
         go.Scatter(
-            x=scaled_time_points, y=stock_lower_bound_path, mode='lines', name='90% CI (Stock - Lower)', line=dict(color='#444', dash=None, width=1.5), showlegend=False,
-            xaxis='x', yaxis='y',
+            x=scaled_time_points, y=stock_lower_bound_path,
+            mode='lines', name='90% CI (Stock)',
+            line=dict(color='#444', width=1.5, dash=None),
+            showlegend=False,
             hovertemplate=f'<b>90% CI (Stock - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
-        row=1, col=1
+        row=2, col=1
     )
 
     fig.add_trace(
         go.Scatter(
-            x=scaled_time_points, y=stock_upper_bound_path, mode='lines', name='90% CI (Stock - Upper)', line=dict(color='#444', dash=None, width=1.5), showlegend=False,
-            xaxis='x', yaxis='y',
+            x=scaled_time_points, y=stock_upper_bound_path,
+            mode='lines', name='90% CI (Stock)',
+            line=dict(color='#444', width=1.5, dash=None),
+            showlegend=False,
             hovertemplate=f'<b>90% CI (Stock - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
-        row=1, col=1
+        row=2, col=1
     )
 
-    # Add strike price line to the first subplot
+    # Add strike price line
     fig.add_trace(
         go.Scatter(
-            x=scaled_time_points, y=np.full_like(scaled_time_points, strike_price), mode='lines', name='Strike Price', line=dict(color='green', dash='dash', width=2),
-            xaxis='x', yaxis='y',
+            x=scaled_time_points, y=np.full_like(scaled_time_points, strike_price),
+            mode='lines', name='Strike Price',
+            line=dict(color='green', dash='dash', width=2),
             hovertemplate=f'<b>Strike Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
-        row=1, col=1
+        row=2, col=1
     )
 
-    # Add option price paths (20 representative) to the second subplot
-    for i, path in enumerate(representative_option_prices):
-         trace_name = f'Option Path {percentile_indices[i]}'
-         fig.add_trace(
-             go.Scatter(
-                 x=scaled_time_points, y=path, mode='lines', line=dict(color=colors[i % len(colors)], width=1.5), showlegend=False, # Use the same color as the corresponding stock path
-                 xaxis='x2', yaxis='y2',
-                 name=trace_name,
-                 hovertemplate=f'<b>{trace_name}</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
-             ),
-             row=1, col=2
-         )
-
-    # Add average option price path to the second subplot
-    fig.add_trace(
-        go.Scatter(
-            x=scaled_time_points, y=np.mean(option_prices, axis=0), mode='lines', name='Average Option Price', line=dict(color='red', width=2),
-            xaxis='x2', yaxis='y2',
-            hovertemplate=f'<b>Average Option Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
-        ),
-        row=1, col=2
-    )
-
-    # Add option price confidence interval bounds to the second subplot
-    fig.add_trace(
-        go.Scatter(
-            x=scaled_time_points, y=option_lower_bound, mode='lines', name='90% CI (Option - Lower)', line=dict(color='#444', dash=None, width=1.5), showlegend=False,
-            xaxis='x2', yaxis='y2',
-            hovertemplate=f'<b>90% CI (Option - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
-        ),
-        row=1, col=2
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=scaled_time_points, y=option_upper_bound, mode='lines', name='90% CI (Option - Upper)', line=dict(color='#444', dash=None, width=1.5), showlegend=False,
-            xaxis='x2', yaxis='y2',
-            hovertemplate=f'<b>90% CI (Option - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
-        ),
-        row=1, col=2
-    )
-
-    # Add theoretical price line to the second subplot
-    # Note: Theoretical price is constant over time for a fixed time_to_exp in BS model, but plotting as a line for visual consistency
-    fig.add_trace(
-         go.Scatter(
-             x=scaled_time_points, y=np.full_like(scaled_time_points, theoretical_price), mode='lines', name='Theoretical Price', line=dict(color='green', dash='dash', width=2),
-             xaxis='x2', yaxis='y2',
-             hovertemplate=f'<b>Theoretical Price</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
-         ),
-         row=1, col=2
-     )
-
-    # Update layout for both subplots
+    # Update layout
     fig.update_layout(
-        title_text='Black-Scholes Monte Carlo Simulation', # Use title_text for overall title
-        height=600, # Increased height slightly
-        showlegend=False, # Remove legend
-        hovermode='closest', # Show hover information for the closest data point
-        margin=dict(l=80, r=40, t=80, b=80) # Adjust margins to provide space for labels
+        title_text='Black-Scholes Monte Carlo Simulation',
+        height=800,  # Increased height for better visibility
+        showlegend=False,
+        hovermode='closest',
+        margin=dict(l=80, r=40, t=80, b=80)
     )
 
-    fig.update_xaxes(title_text=x_axis_title, row=1, col=1,
-                     range=[0, total_duration_in_unit], fixedrange=False,
-                     minallowed=0, maxallowed=total_duration_in_unit) # Allow zooming/panning, but restrict panning range
-    # Auto-scale Y for stock price, include 0 and strike
+    # Update x-axes (only the bottom one needs a title)
+    fig.update_xaxes(title_text=x_axis_title, row=2, col=1)
+
+    # Apply range constraints to the shared x-axis
+    fig.update_xaxes(range=[0, total_duration_in_unit], fixedrange=False, minallowed=0, maxallowed=total_duration_in_unit)
+
+    # Update y-axes
+    # For call options
+    call_y_min = np.min(representative_call_prices)
+    call_y_max = np.max(representative_call_prices)
+    call_ci_min = np.min(call_lower_bound)
+    call_ci_max = np.max(call_upper_bound)
+    call_y_range = [min(0, call_y_min * 0.8, call_theoretical_price * 0.8, call_ci_min * 0.8),
+                   max(call_y_max * 1.2, call_theoretical_price * 1.2, call_ci_max * 1.2)]
+    fig.update_yaxes(title_text='Call Option Price ($)', row=1, col=1, range=call_y_range)
+
+    # For put options
+    put_y_min = np.min(representative_put_prices)
+    put_y_max = np.max(representative_put_prices)
+    put_ci_min = np.min(put_lower_bound)
+    put_ci_max = np.max(put_upper_bound)
+    put_y_range = [min(0, put_y_min * 0.8, put_theoretical_price * 0.8, put_ci_min * 0.8),
+                  max(put_y_max * 1.2, put_theoretical_price * 1.2, put_ci_max * 1.2)]
+    fig.update_yaxes(title_text='Put Option Price ($)', row=1, col=2, range=put_y_range)
+
+    # For stock price
     stock_y_min = np.min(representative_paths)
     stock_y_max = np.max(representative_paths)
-    # Adjust y-axis range to include confidence intervals
     stock_ci_min = np.min(stock_lower_bound_path)
     stock_ci_max = np.max(stock_upper_bound_path)
-    y1_range_adjusted = [min(0, stock_y_min * 0.8, strike_price * 0.8, stock_ci_min * 0.8), max(stock_y_max * 1.2, strike_price * 1.2, stock_ci_max * 1.2)]
-    fig.update_yaxes(title_text='Stock Price ($)', row=1, col=1, range=y1_range_adjusted)
+    stock_y_range = [min(0, stock_y_min * 0.8, strike_price * 0.8, stock_ci_min * 0.8),
+                    max(stock_y_max * 1.2, strike_price * 1.2, stock_ci_max * 1.2)]
+    fig.update_yaxes(title_text='Stock Price ($)', row=2, col=1, range=stock_y_range)
 
-    fig.update_xaxes(title_text=x_axis_title, row=1, col=2,
-                     range=[0, total_duration_in_unit], fixedrange=False,
-                     minallowed=0, maxallowed=total_duration_in_unit) # Allow zooming/panning, but restrict panning range
-    # Auto-scale Y for option price, include 0 and theoretical price
-    option_y_min = np.min(representative_option_prices)
-    option_y_max = np.max(representative_option_prices)
-    # Adjust y-axis range to include confidence intervals
-    option_ci_min = np.min(option_lower_bound)
-    option_ci_max = np.max(option_upper_bound)
-    y2_range_adjusted = [min(0, option_y_min * 0.8, theoretical_price * 0.8, option_ci_min * 0.8), max(option_y_max * 1.2, theoretical_price * 1.2, option_ci_max * 1.2)]
-    fig.update_yaxes(title_text='Option Price ($)', row=1, col=2, range=y2_range_adjusted)
-
-    # Generate HTML div and script for the figure
-    # include_plotlyjs='cdn' ensures the JS library is loaded from a CDN
+    # Generate HTML div
     plot_div = pio.to_html(fig, full_html=False, include_plotlyjs='cdn')
 
     # Return the HTML div string, prices, and statistics
-    return plot_div, theoretical_price, mc_price, prob_itm, final_stock_ci_lower, final_stock_ci_upper, avg_final_option_price, std_final_option_price # Return plot_div (HTML string)
+    return plot_div, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
+           call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
+           np.mean(final_call_prices), np.std(final_call_prices), \
+           np.mean(final_put_prices), np.std(final_put_prices), \
+           final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -321,7 +394,6 @@ def index():
             time_value = float(request.form['time_value'])
             time_unit = request.form['time_unit']
             risk_free_rate = float(request.form['risk_free_rate'])
-            option_type = request.form['option_type']
 
             # Convert time to expiration to years
             if time_unit == 'months':
@@ -344,45 +416,69 @@ def index():
                 raise ValueError("Time to expiration must be positive")
 
             # Call make_plot, it now returns plot_div and statistics
-            plot_div, theoretical_price, mc_price, prob_itm, final_stock_ci_lower, final_stock_ci_upper, avg_final_option_price, std_final_option_price = make_plot(
+            plot_div, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
+                   call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
+                   avg_final_call_price, std_final_call_price, \
+                   avg_final_put_price, std_final_put_price, \
+                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper = make_plot(
                 vol=vol,
                 underlying_price=underlying_price,
                 strike_price=strike_price,
                 time_to_exp=time_to_exp,
                 risk_free_rate=risk_free_rate,
-                option_type=option_type,
                 time_value=time_value,
                 time_unit=time_unit
             )
 
             # Pass plot_div, prices, and statistics to the template
-            return render_template('index.html', plot_div=plot_div, theoretical_price=theoretical_price, mc_price=mc_price,
+            return render_template('index.html', plot_div=plot_div, call_theoretical_price=call_theoretical_price, call_mc_price=call_mc_price,
+                                   put_theoretical_price=put_theoretical_price, put_mc_price=put_mc_price,
                                    vol=vol, underlying_price=underlying_price, strike_price=strike_price,
-                                   risk_free_rate=risk_free_rate, option_type=option_type, time_value=time_value, time_unit=time_unit,
-                                   prob_itm=prob_itm, final_stock_ci_lower=final_stock_ci_lower, final_stock_ci_upper=final_stock_ci_upper,
-                                   avg_final_option_price=avg_final_option_price, std_final_option_price=std_final_option_price)
+                                   risk_free_rate=risk_free_rate,
+                                   time_value=time_value,
+                                   time_unit=time_unit,
+                                   call_prob_itm=call_prob_itm,
+                                   put_prob_itm=put_prob_itm,
+                                   final_stock_ci_lower=final_stock_ci_lower,
+                                   final_stock_ci_upper=final_stock_ci_upper,
+                                   avg_final_call_price=avg_final_call_price,
+                                   std_final_call_price=std_final_call_price,
+                                   avg_final_put_price=avg_final_put_price,
+                                   std_final_put_price=std_final_put_price,
+                                   final_call_ci_lower=final_call_ci_lower, final_call_ci_upper=final_call_ci_upper,
+                                   final_put_ci_lower=final_put_ci_lower, final_put_ci_upper=final_put_ci_upper)
         else:
             # Generate initial visualization with default values
             # Call make_plot, it now returns plot_div and statistics
-            plot_div, theoretical_price, mc_price, prob_itm, final_stock_ci_lower, final_stock_ci_upper, avg_final_option_price, std_final_option_price = make_plot(time_value=1, time_unit='years') # Pass default time values
+            plot_div, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
+                   call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
+                   avg_final_call_price, std_final_call_price, \
+                   avg_final_put_price, std_final_put_price, \
+                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper = make_plot(time_value=1, time_unit='years') # Pass default time values
 
             # Pass plot_div, prices, and statistics to the template
             return render_template('index.html',
                                 plot_div=plot_div,
-                                theoretical_price=theoretical_price,
-                                mc_price=mc_price,
+                                call_theoretical_price=call_theoretical_price,
+                                call_mc_price=call_mc_price,
+                                put_theoretical_price=put_theoretical_price,
+                                put_mc_price=put_mc_price,
                                 vol=0.5,
                                 underlying_price=100,
                                 strike_price=110,
                                 risk_free_rate=0.05,
-                                option_type='call',
                                 time_value=1,
                                 time_unit='years',
-                                prob_itm=prob_itm,
+                                call_prob_itm=call_prob_itm,
+                                put_prob_itm=put_prob_itm,
                                 final_stock_ci_lower=final_stock_ci_lower,
                                 final_stock_ci_upper=final_stock_ci_upper,
-                                avg_final_option_price=avg_final_option_price,
-                                std_final_option_price=std_final_option_price)
+                                avg_final_call_price=avg_final_call_price,
+                                std_final_call_price=std_final_call_price,
+                                avg_final_put_price=avg_final_put_price,
+                                std_final_put_price=std_final_put_price,
+                                final_call_ci_lower=final_call_ci_lower, final_call_ci_upper=final_call_ci_upper,
+                                final_put_ci_lower=final_put_ci_lower, final_put_ci_upper=final_put_ci_upper)
 
     except Exception as e:
         error_message = f"An error occurred: {str(e)}\n\nFull traceback:\n{traceback.format_exc()}"
