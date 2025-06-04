@@ -2,7 +2,7 @@
 
 This is a simple web application built with Flask and Plotly to visualize Black-Scholes option pricing using a Geometric Brownian Motion Monte Carlo simulation.
 
-<img width="936" alt="image" src="https://github.com/user-attachments/assets/16a16db0-eb70-4438-a8ab-d815017e0f8f" />
+<img width="705" alt="image" src="https://github.com/user-attachments/assets/0770eb5e-6f72-4553-ab54-01f0ade97b51" />
 
 ## Features
 
