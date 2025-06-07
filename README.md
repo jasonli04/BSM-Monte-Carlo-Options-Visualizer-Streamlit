@@ -2,7 +2,9 @@
 
 A modern web application built with Streamlit and Plotly to visualize Black-Scholes option pricing using a Geometric Brownian Motion Monte Carlo simulation. This tool provides an interactive interface for exploring option pricing and risk metrics through both theoretical calculations and Monte Carlo simulations.
 
-![Application Screenshot](https://github.com/user-attachments/assets/0770eb5e-6f72-4553-ab54-01f0ade97b51)
+![image](https://github.com/user-attachments/assets/3a972f5b-d2bf-4b09-8c91-227005b65aa4)
+![image](https://github.com/user-attachments/assets/56780b5c-3778-4cb4-a875-86c7ac2cb5ca)
+
 
 ## Features
 
