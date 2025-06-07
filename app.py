@@ -48,8 +48,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     
     # Run Monte Carlo simulation for both call and put
     num_simulations = 100000
-    call_mc_price, paths = bs.monte_carlo_simulation(num_simulations, 'call')
-    put_mc_price, _ = bs.monte_carlo_simulation(num_simulations, 'put')
+    call_mc_price, put_mc_price, paths = bs.monte_carlo_simulation(num_simulations)
 
     # Create time points for x-axis (initial, in years)
     time_points = np.linspace(0, time_to_exp, paths.shape[1])
@@ -123,6 +122,14 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     final_stock_prices = paths[:, -1]
     final_call_prices = call_option_prices[:, -1]
     final_put_prices = put_option_prices[:, -1]
+
+    # Calculate final payoffs
+    final_call_payoffs = np.maximum(final_stock_prices - strike_price, 0)
+    final_put_payoffs = np.maximum(strike_price - final_stock_prices, 0)
+
+    # Calculate discounted present values using final payoffs
+    discounted_call_price = np.mean(final_call_payoffs) * np.exp(-risk_free_rate * time_to_exp)
+    discounted_put_price = np.mean(final_put_payoffs) * np.exp(-risk_free_rate * time_to_exp)
 
     # Probability of being ITM
     call_itm_count = np.sum(final_stock_prices > strike_price)
@@ -381,7 +388,8 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
            call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
            np.mean(final_call_prices), np.std(final_call_prices), \
            np.mean(final_put_prices), np.std(final_put_prices), \
-           final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper
+           final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
+           discounted_call_price, discounted_put_price
 
 @app.route('/', methods=['GET', 'POST'])
 def index():
@@ -420,7 +428,8 @@ def index():
                    call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
                    avg_final_call_price, std_final_call_price, \
                    avg_final_put_price, std_final_put_price, \
-                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper = make_plot(
+                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
+                   discounted_call_price, discounted_put_price = make_plot(
                 vol=vol,
                 underlying_price=underlying_price,
                 strike_price=strike_price,
@@ -446,7 +455,9 @@ def index():
                                    avg_final_put_price=avg_final_put_price,
                                    std_final_put_price=std_final_put_price,
                                    final_call_ci_lower=final_call_ci_lower, final_call_ci_upper=final_call_ci_upper,
-                                   final_put_ci_lower=final_put_ci_lower, final_put_ci_upper=final_put_ci_upper)
+                                   final_put_ci_lower=final_put_ci_lower, final_put_ci_upper=final_put_ci_upper,
+                                   discounted_call_price=discounted_call_price,
+                                   discounted_put_price=discounted_put_price)
         else:
             # Generate initial visualization with default values
             # Call make_plot, it now returns plot_div and statistics
@@ -454,7 +465,8 @@ def index():
                    call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
                    avg_final_call_price, std_final_call_price, \
                    avg_final_put_price, std_final_put_price, \
-                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper = make_plot(time_value=1, time_unit='years') # Pass default time values
+                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
+                   discounted_call_price, discounted_put_price = make_plot(time_value=1, time_unit='years') # Pass default time values
 
             # Pass plot_div, prices, and statistics to the template
             return render_template('index.html',
@@ -477,8 +489,12 @@ def index():
                                 std_final_call_price=std_final_call_price,
                                 avg_final_put_price=avg_final_put_price,
                                 std_final_put_price=std_final_put_price,
-                                final_call_ci_lower=final_call_ci_lower, final_call_ci_upper=final_call_ci_upper,
-                                final_put_ci_lower=final_put_ci_lower, final_put_ci_upper=final_put_ci_upper)
+                                final_call_ci_lower=final_call_ci_lower,
+                                final_call_ci_upper=final_call_ci_upper,
+                                final_put_ci_lower=final_put_ci_lower,
+                                final_put_ci_upper=final_put_ci_upper,
+                                discounted_call_price=discounted_call_price,
+                                discounted_put_price=discounted_put_price)
 
     except Exception as e:
         error_message = f"An error occurred: {str(e)}\n\nFull traceback:\n{traceback.format_exc()}"

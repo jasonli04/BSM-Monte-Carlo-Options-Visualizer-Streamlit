@@ -417,19 +417,19 @@
                                 <td>${{ "%.2f"|format(put_theoretical_price) }}</td>
                             </tr>
                             <tr>
-                                <td>Monte Carlo Price</td>
+                                <td>Simulated Monte Carlo Price / Average Discounted Final Price</td>
                                 <td>${{ "%.2f"|format(call_mc_price) }}</td>
                                 <td>${{ "%.2f"|format(put_mc_price) }}</td>
                             </tr>
                             <tr>
-                                <td>Probability of being In-The-Money (ITM)</td>
-                                <td>{{ "%.2f"|format(call_prob_itm) }}%</td>
-                                <td>{{ "%.2f"|format(put_prob_itm) }}%</td>
-                            </tr>
-                            <tr>
-                                <td>Average Final Price</td>
+                                <td>Average Final Price (Un-Discounted)</td>
                                 <td>${{ "%.2f"|format(avg_final_call_price) }}</td>
                                 <td>${{ "%.2f"|format(avg_final_put_price) }}</td>
+                            </tr>
+                            <tr>
+                                <td>In-The-Money (ITM) Probability</td>
+                                <td>{{ "%.2f"|format(call_prob_itm) }}%</td>
+                                <td>{{ "%.2f"|format(put_prob_itm) }}%</td>
                             </tr>
                             <tr>
                                 <td>Standard Deviation</td>

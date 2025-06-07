@@ -34,7 +34,7 @@ class BlackScholes:
         else:
             return K * np.exp(-r * T) * norm.cdf(-d2) - S * norm.cdf(-d1)
     
-    def monte_carlo_simulation(self, num_simulations=500, option_type='call'):
+    def monte_carlo_simulation(self, num_simulations=500):
         num_steps = 252
         dt = self.time_to_expiration / num_steps
         S = np.zeros((num_simulations, num_steps + 1))
@@ -42,19 +42,24 @@ class BlackScholes:
         for t in range(1, num_steps + 1):
             Z = np.random.standard_normal(num_simulations)
             S[:, t] = S[:, t-1] * np.exp((self.risk_free_rate - 0.5 * self.volatility**2) * dt + self.volatility * np.sqrt(dt) * Z)
-        if option_type == 'call':
-            payoff = np.maximum(S[:, -1] - self.strike_Price, 0)
-        else:
-            payoff = np.maximum(self.strike_Price - S[:, -1], 0)
-        option_price = np.exp(-self.risk_free_rate * self.time_to_expiration) * np.mean(payoff)
-        return option_price, S
+        
+        # Calculate payoffs for both call and put options using the final stock prices
+        final_stock_prices = S[:, -1]
+        call_payoffs = np.maximum(final_stock_prices - self.strike_Price, 0)
+        put_payoffs = np.maximum(self.strike_Price - final_stock_prices, 0)
+
+        # Calculate discounted option prices
+        call_option_price = np.exp(-self.risk_free_rate * self.time_to_expiration) * np.mean(call_payoffs)
+        put_option_price = np.exp(-self.risk_free_rate * self.time_to_expiration) * np.mean(put_payoffs)
+
+        return call_option_price, put_option_price, S
 
     def visualize(self, num_simulations=100):
         # Calculate theoretical price
         theoretical_price = self.calcPrice()
         
         # Run Monte Carlo simulation
-        mc_price, paths = self.monte_carlo_simulation(num_simulations)
+        mc_price, _ = self.monte_carlo_simulation(num_simulations)
         
         # Create time points for x-axis
         time_points = np.linspace(0, self.time_to_expiration, paths.shape[1])
