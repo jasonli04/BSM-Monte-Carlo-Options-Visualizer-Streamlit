@@ -1,18 +1,10 @@
+import streamlit as st
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-
-from flask import Flask, render_template, request
-from BlackScholes import BlackScholes
+import plotly
 import numpy as np
-import traceback
-import sys
 from scipy.stats import norm
-import plotly.io as pio
-
-pio.renderers.default = 'browser'
-
-app = Flask(__name__)
-app.debug = True
+from BlackScholes import BlackScholes
 
 # Add vectorized Black-Scholes function
 def black_scholes_vectorized(S, K, T, r, sigma, option_type='call'):
@@ -127,6 +119,10 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     # Calculate discounted present values using final payoffs
     discounted_call_price = np.mean(final_call_payoffs) * np.exp(-risk_free_rate * time_to_exp)
     discounted_put_price = np.mean(final_put_payoffs) * np.exp(-risk_free_rate * time_to_exp)
+    
+    # Calculate un-discounted final prices
+    undiscounted_call_price = np.mean(final_call_payoffs)
+    undiscounted_put_price = np.mean(final_put_payoffs)
 
     # Probability of being ITM
     call_itm_count = np.sum(final_stock_prices > strike_price)
@@ -202,7 +198,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         go.Scatter(
             x=scaled_time_points, y=call_lower_bound,
             mode='lines', name='90% CI (Call)',
-            line=dict(color='#444', width=1.5, dash=None),
+            line=dict(color='rgba(255, 255, 255, 0.7)', width=2),
             showlegend=False,
             hovertemplate=f'<b>90% CI (Call - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
@@ -213,7 +209,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         go.Scatter(
             x=scaled_time_points, y=call_upper_bound,
             mode='lines', name='90% CI (Call)',
-            line=dict(color='#444', width=1.5, dash=None),
+            line=dict(color='rgba(255, 255, 255, 0.7)', width=2),
             showlegend=False,
             hovertemplate=f'<b>90% CI (Call - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
@@ -236,7 +232,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         go.Scatter(
             x=scaled_time_points, y=put_lower_bound,
             mode='lines', name='90% CI (Put)',
-            line=dict(color='#444', width=1.5, dash=None),
+            line=dict(color='rgba(255, 255, 255, 0.7)', width=2),
             showlegend=False,
             hovertemplate=f'<b>90% CI (Put - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
@@ -247,7 +243,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         go.Scatter(
             x=scaled_time_points, y=put_upper_bound,
             mode='lines', name='90% CI (Put)',
-            line=dict(color='#444', width=1.5, dash=None),
+            line=dict(color='rgba(255, 255, 255, 0.7)', width=2),
             showlegend=False,
             hovertemplate=f'<b>90% CI (Put - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
@@ -305,7 +301,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         go.Scatter(
             x=scaled_time_points, y=stock_lower_bound_path,
             mode='lines', name='90% CI (Stock)',
-            line=dict(color='#444', width=1.5, dash=None),
+            line=dict(color='rgba(255, 255, 255, 0.7)', width=2),
             showlegend=False,
             hovertemplate=f'<b>90% CI (Stock - Lower)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
@@ -316,7 +312,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         go.Scatter(
             x=scaled_time_points, y=stock_upper_bound_path,
             mode='lines', name='90% CI (Stock)',
-            line=dict(color='#444', width=1.5, dash=None),
+            line=dict(color='rgba(255, 255, 255, 0.7)', width=2),
             showlegend=False,
             hovertemplate=f'<b>90% CI (Stock - Upper)</b><br>Time: %{{x:.2f}} {x_axis_unit_only}<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
@@ -334,13 +330,16 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
         row=2, col=1
     )
 
-    # Update layout
+    # Update layout with dark background
     fig.update_layout(
         title_text='Black-Scholes Monte Carlo Simulation',
         height=800,  # Increased height for better visibility
         showlegend=False,
         hovermode='closest',
-        margin=dict(l=80, r=40, t=80, b=80)
+        margin=dict(l=80, r=40, t=80, b=80),
+        plot_bgcolor='black',
+        paper_bgcolor='black',
+        font=dict(color='white')
     )
 
     # Update x-axes (only the bottom one needs a title)
@@ -348,6 +347,10 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
 
     # Apply range constraints to the shared x-axis
     fig.update_xaxes(range=[0, total_duration_in_unit], fixedrange=False, minallowed=0, maxallowed=total_duration_in_unit)
+
+    # Update axes with white grid lines
+    fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128, 128, 128, 0.2)')
+    fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128, 128, 128, 0.2)')
 
     # Update y-axes
     # For call options
@@ -377,126 +380,109 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
                     max(stock_y_max * 1.2, strike_price * 1.2, stock_ci_max * 1.2)]
     fig.update_yaxes(title_text='Stock Price ($)', row=2, col=1, range=stock_y_range)
 
-    # Generate HTML div
-    plot_div = pio.to_html(fig, full_html=False, include_plotlyjs='cdn')
-
-    # Return the HTML div string, prices, and statistics
-    return plot_div, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
+    return fig, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
            call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
            np.mean(final_call_prices), np.std(final_call_prices), \
            np.mean(final_put_prices), np.std(final_put_prices), \
            final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
-           discounted_call_price, discounted_put_price
+           discounted_call_price, discounted_put_price, \
+           undiscounted_call_price, undiscounted_put_price
 
-@app.route('/', methods=['GET', 'POST'])
-def index():
-    try:
-        if request.method == 'POST':
-            # Get parameters from form
-            vol = float(request.form['volatility'])
-            underlying_price = float(request.form['underlying_price'])
-            strike_price = float(request.form['strike_price'])
-            time_value = float(request.form['time_value'])
-            time_unit = request.form['time_unit']
-            risk_free_rate = float(request.form['risk_free_rate'])
+def main():
+    st.set_page_config(page_title="Black-Scholes Monte Carlo Options Visualizer", layout="wide")
 
-            # Convert time to expiration to years
-            if time_unit == 'months':
-                time_to_exp = time_value / 12.0
-            elif time_unit == 'weeks':
-                time_to_exp = time_value / 52.0
-            elif time_unit == 'days':
-                time_to_exp = time_value / 365.0
-            else: # assume years
-                time_to_exp = time_value
+    # CSS to make the spinner icon white and larger
+    st.markdown("""
+    <style>
+    /* Target the SVG icon within the spinner */
+    .stSpinner > div > div > svg {
+        fill: white !important; /* Make the spinner icon white */
+        width: 75px !important; /* Make it larger */
+        height: 75px !important; /* Make it larger */
+    }
+    /* Ensure the text is white */
+    .stSpinner > div > div > div {
+        color: white !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
 
-            # Input validation
-            if vol <= 0:
-                raise ValueError("Volatility must be positive")
-            if underlying_price <= 0:
-                raise ValueError("Underlying price must be positive")
-            if strike_price <= 0:
-                raise ValueError("Strike price must be positive")
-            if time_to_exp <= 0:
-                raise ValueError("Time to expiration must be positive")
+    st.title("Black-Scholes Monte Carlo Options Visualizer")
 
-            # Call make_plot, it now returns plot_div and statistics
-            plot_div, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
-                   call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
-                   avg_final_call_price, std_final_call_price, \
-                   avg_final_put_price, std_final_put_price, \
-                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
-                   discounted_call_price, discounted_put_price = make_plot(
-                vol=vol,
-                underlying_price=underlying_price,
-                strike_price=strike_price,
-                time_to_exp=time_to_exp,
-                risk_free_rate=risk_free_rate,
-                time_value=time_value,
-                time_unit=time_unit
-            )
+    # Create sidebar for inputs
+    st.sidebar.header("Input Parameters")
 
-            # Pass plot_div, prices, and statistics to the template
-            return render_template('index.html', plot_div=plot_div, call_theoretical_price=call_theoretical_price, call_mc_price=call_mc_price,
-                                   put_theoretical_price=put_theoretical_price, put_mc_price=put_mc_price,
-                                   vol=vol, underlying_price=underlying_price, strike_price=strike_price,
-                                   risk_free_rate=risk_free_rate,
-                                   time_value=time_value,
-                                   time_unit=time_unit,
-                                   call_prob_itm=call_prob_itm,
-                                   put_prob_itm=put_prob_itm,
-                                   final_stock_ci_lower=final_stock_ci_lower,
-                                   final_stock_ci_upper=final_stock_ci_upper,
-                                   avg_final_call_price=avg_final_call_price,
-                                   std_final_call_price=std_final_call_price,
-                                   avg_final_put_price=avg_final_put_price,
-                                   std_final_put_price=std_final_put_price,
-                                   final_call_ci_lower=final_call_ci_lower, final_call_ci_upper=final_call_ci_upper,
-                                   final_put_ci_lower=final_put_ci_lower, final_put_ci_upper=final_put_ci_upper,
-                                   discounted_call_price=discounted_call_price,
-                                   discounted_put_price=discounted_put_price)
-        else:
-            # Generate initial visualization with default values
-            # Call make_plot, it now returns plot_div and statistics
-            plot_div, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
-                   call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
-                   avg_final_call_price, std_final_call_price, \
-                   avg_final_put_price, std_final_put_price, \
-                   final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
-                   discounted_call_price, discounted_put_price = make_plot(time_value=1, time_unit='years') # Pass default time values
+    with st.sidebar.form("input_form"):
+        # Input parameters
+        vol = st.slider("Volatility", min_value=0.01, max_value=2.0, value=0.5, step=0.01)
+        underlying_price = st.number_input("Underlying Price ($)", min_value=1.0, value=100.0, step=1.0)
+        strike_price = st.number_input("Strike Price ($)", min_value=1.0, value=110.0, step=1.0)
+        time_value = st.number_input("Time Value", min_value=0.01, value=1.0, step=0.01)
+        time_unit = st.selectbox("Time Unit", ["years", "months", "weeks", "days"])
+        risk_free_rate = st.slider("Risk-Free Rate (%)", min_value=0.0, max_value=20.0, value=5.0, step=0.1) / 100.0
 
-            # Pass plot_div, prices, and statistics to the template
-            return render_template('index.html',
-                                plot_div=plot_div,
-                                call_theoretical_price=call_theoretical_price,
-                                call_mc_price=call_mc_price,
-                                put_theoretical_price=put_theoretical_price,
-                                put_mc_price=put_mc_price,
-                                vol=0.5,
-                                underlying_price=100,
-                                strike_price=110,
-                                risk_free_rate=0.05,
-                                time_value=1,
-                                time_unit='years',
-                                call_prob_itm=call_prob_itm,
-                                put_prob_itm=put_prob_itm,
-                                final_stock_ci_lower=final_stock_ci_lower,
-                                final_stock_ci_upper=final_stock_ci_upper,
-                                avg_final_call_price=avg_final_call_price,
-                                std_final_call_price=std_final_call_price,
-                                avg_final_put_price=avg_final_put_price,
-                                std_final_put_price=std_final_put_price,
-                                final_call_ci_lower=final_call_ci_lower,
-                                final_call_ci_upper=final_call_ci_upper,
-                                final_put_ci_lower=final_put_ci_lower,
-                                final_put_ci_upper=final_put_ci_upper,
-                                discounted_call_price=discounted_call_price,
-                                discounted_put_price=discounted_put_price)
+        submitted = st.form_submit_button("Run Simulation")
 
-    except Exception as e:
-        error_message = f"An error occurred: {str(e)}\n\nFull traceback:\n{traceback.format_exc()}"
-        print(error_message, file=sys.stderr)
-        return render_template('error.html', error_message=error_message)
+    # Convert time to expiration to years
+    if time_unit == 'months':
+        time_to_exp = time_value / 12.0
+    elif time_unit == 'weeks':
+        time_to_exp = time_value / 52.0
+    elif time_unit == 'days':
+        time_to_exp = time_value / 365.0
+    else: # assume years
+        time_to_exp = time_value
+
+    if submitted:
+        try:
+            # Show loading spinner while running simulations
+            with st.spinner("Running Monte Carlo Simulations... This may take a few seconds while we simulate 100,000 paths"):
+                # Generate plot and statistics
+                fig, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
+                    call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
+                    avg_final_call_price, std_final_call_price, \
+                    avg_final_put_price, std_final_put_price, \
+                    final_call_ci_lower, final_call_ci_upper, final_put_ci_lower, final_put_ci_upper, \
+                    discounted_call_price, discounted_put_price, \
+                    undiscounted_call_price, undiscounted_put_price = make_plot(
+                    vol=vol,
+                    underlying_price=underlying_price,
+                    strike_price=strike_price,
+                    time_to_exp=time_to_exp,
+                    risk_free_rate=risk_free_rate,
+                    time_value=time_value,
+                    time_unit=time_unit
+                )
+
+            # Display the plot
+            st.plotly_chart(fig, use_container_width=True)
+
+            # Create two columns for statistics
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.subheader("Call Option Statistics")
+                st.metric("Theoretical Price", f"${call_theoretical_price:.2f}")
+                st.metric("Monte Carlo Simulated Price (Discounted)", f"${call_mc_price:.2f}")
+                st.metric("Monte Carlo Simulated Price (Un-discounted)", f"${undiscounted_call_price:.2f}")
+                st.metric("Probability ITM", f"{call_prob_itm:.1f}%")
+                st.metric("Final Price (90% CI)", f"${final_call_ci_lower:.2f} - ${final_call_ci_upper:.2f}")
+                st.metric("Price Standard Deviation", f"${std_final_call_price:.2f}")
+
+            with col2:
+                st.subheader("Put Option Statistics")
+                st.metric("Theoretical Price", f"${put_theoretical_price:.2f}")
+                st.metric("Monte Carlo Simulated Price (Discounted)", f"${put_mc_price:.2f}")
+                st.metric("Monte Carlo Simulated Price (Un-discounted)", f"${undiscounted_put_price:.2f}")
+                st.metric("Probability ITM", f"{put_prob_itm:.1f}%")
+                st.metric("Final Price (90% CI)", f"${final_put_ci_lower:.2f} - ${final_put_ci_upper:.2f}")
+                st.metric("Price Standard Deviation", f"${std_final_put_price:.2f}")
+
+        except Exception as e:
+            st.error(f"An error occurred: {str(e)}")
+    else:
+        # Initial display with default values or no display until submitted
+        st.info("Adjust parameters in the sidebar and click 'Run Simulation' to view results.")
 
 if __name__ == '__main__':
-    app.run(debug=True) 
+    main() 
