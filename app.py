@@ -1,10 +1,7 @@
 import plotly.graph_objects as go
 from plotly.subplots import make_subplots
-import plotly.utils
-import json
-from flask import Flask, render_template, request, send_file, jsonify
-import io
-import base64
+
+from flask import Flask, render_template, request
 from BlackScholes import BlackScholes
 import numpy as np
 import traceback

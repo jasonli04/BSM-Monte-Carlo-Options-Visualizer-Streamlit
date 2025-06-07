@@ -17,14 +17,6 @@ class BlackScholes:
         self.time_to_expiration = timeToExp
         self.risk_free_rate = riskFreeRate
     
-    def _d1(self):
-        return (np.log(self.underlying_Price / self.strike_Price) + 
-                (self.risk_free_rate + 0.5 * self.volatility**2) * self.time_to_expiration) / \
-               (self.volatility * np.sqrt(self.time_to_expiration))
-    
-    def _d2(self):
-        return self._d1() - self.volatility * np.sqrt(self.time_to_expiration)
-    
     def calcPrice(self, option_type='call'):
         S, K, T, r, sigma = self.underlying_Price, self.strike_Price, self.time_to_expiration, self.risk_free_rate, self.volatility
         d1 = (np.log(S / K) + (r + 0.5 * sigma ** 2) * T) / (sigma * np.sqrt(T))
