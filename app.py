@@ -93,8 +93,12 @@ def update_figure_layout(fig, x_axis_title):
         font=dict(color='white')
     )
     
-    # Update x-axes
-    fig.update_xaxes(title_text=x_axis_title, row=2, col=1)
+    # Update x-axes for all subplots
+    fig.update_xaxes(title_text=x_axis_title, row=1, col=1)  # Stock price paths
+    fig.update_xaxes(title_text=x_axis_title, row=2, col=1)  # Call option price evolution
+    fig.update_xaxes(title_text=x_axis_title, row=2, col=2)  # Put option price evolution
+    
+    # Update grid styling for all axes
     fig.update_xaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128, 128, 128, 0.2)')
     fig.update_yaxes(showgrid=True, gridwidth=1, gridcolor='rgba(128, 128, 128, 0.2)')
 
