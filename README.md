@@ -24,6 +24,7 @@ A modern web application built with Streamlit and Plotly to visualize Black-Scho
   * Stock price path simulation
   * Confidence intervals for all metrics
   * Theoretical vs. simulated price comparison
+  * **Distributions of Final Option Prices**: Histograms showing the frequency (in percentages) of final call and put option prices at expiration, excluding zero-value outcomes for clarity, with a fixed number of buckets for consistent comparison.
 
 * **Detailed Statistics**
   * Theoretical Black-Scholes prices
