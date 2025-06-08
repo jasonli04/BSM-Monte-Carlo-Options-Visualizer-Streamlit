@@ -4,8 +4,10 @@ You can run this app [here](https://black-scholes-options-visualizer.streamlit.a
 
 A modern web application built with Streamlit and Plotly to visualize Black-Scholes option pricing using a Geometric Brownian Motion Monte Carlo simulation. This tool provides an interactive interface for exploring option pricing and risk metrics through both theoretical calculations and Monte Carlo simulations.
 
-![image](https://github.com/user-attachments/assets/3a972f5b-d2bf-4b09-8c91-227005b65aa4)
-![image](https://github.com/user-attachments/assets/56780b5c-3778-4cb4-a875-86c7ac2cb5ca)
+<img width="1326" alt="image" src="https://github.com/user-attachments/assets/efeb3c80-ff9e-4603-82e5-99d77e754c91" />
+<img width="987" alt="image" src="https://github.com/user-attachments/assets/faaf640a-d6ce-462d-b3e2-dff4d9a5855e" />
+<img width="976" alt="image" src="https://github.com/user-attachments/assets/28f8e5fc-8690-4bd3-86a5-e302fb8dfff0" />
+<img width="882" alt="image" src="https://github.com/user-attachments/assets/ad61b5a3-cd8a-4c05-aff9-70347ef30850" />
 
 
 ## Features
