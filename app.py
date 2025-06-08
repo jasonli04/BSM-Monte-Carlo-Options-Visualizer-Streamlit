@@ -6,14 +6,16 @@ import numpy as np
 from scipy.stats import norm
 from BlackScholes import BlackScholes
 
-def create_base_figure():
+def create_base_figure(call_prob_itm=0, put_prob_itm=0):
     """Create the base figure with subplots."""
     return make_subplots(
-        rows=2, cols=2,
-        subplot_titles=('Call Option Price Evolution', 'Put Option Price Evolution', 'Stock Price Paths'),
-        specs=[[{}, {}], [{"colspan": 2}, None]],
+        rows=3, cols=2,
+        subplot_titles=('Stock Price Paths', 'Call Option Price Evolution', 'Put Option Price Evolution',
+                        f'Final Call Price Distribution (Prob ITM: {call_prob_itm:.1f}%)', 
+                        f'Final Put Price Distribution (Prob ITM: {put_prob_itm:.1f}%)'),
+        specs=[[{"colspan": 2}, None], [{}, {}], [{}, {}]],
         vertical_spacing=0.1,
-        shared_xaxes=True
+        shared_xaxes=False # We need independent x-axes for histograms
     )
 
 def add_option_paths(fig, time_points, paths, prices, option_type, row, col, colors):
@@ -82,7 +84,7 @@ def update_figure_layout(fig, x_axis_title):
     """Update the figure layout with consistent styling."""
     fig.update_layout(
         title_text='Black-Scholes Monte Carlo Simulation',
-        height=800,
+        height=1500, # Increased height for more vertical space
         showlegend=False,
         hovermode='closest',
         margin=dict(l=80, r=40, t=80, b=80),
@@ -147,35 +149,41 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     put_lower_bound = np.percentile(put_prices, 5, axis=0)
     put_upper_bound = np.percentile(put_prices, 95, axis=0)
 
-    # Create figure
-    fig = create_base_figure()
-    colors = plotly.colors.qualitative.Plotly
-
-    # Add paths and bounds for each subplot
-    add_option_paths(fig, scaled_time_points, representative_call_prices, call_prices, 'Call', 1, 1, colors)
-    add_option_paths(fig, scaled_time_points, representative_put_prices, put_prices, 'Put', 1, 2, colors)
-    add_option_paths(fig, scaled_time_points, representative_paths, paths, 'Stock', 2, 1, colors)
-
-    add_average_path(fig, scaled_time_points, call_prices, 'Call', 1, 1)
-    add_average_path(fig, scaled_time_points, put_prices, 'Put', 1, 2)
-    add_average_path(fig, scaled_time_points, paths, 'Stock', 2, 1)
-
-    add_confidence_intervals(fig, scaled_time_points, call_lower_bound, call_upper_bound, 'Call', 1, 1)
-    add_confidence_intervals(fig, scaled_time_points, put_lower_bound, put_upper_bound, 'Put', 1, 2)
-    add_confidence_intervals(fig, scaled_time_points, stock_lower_bound, stock_upper_bound, 'Stock', 2, 1)
-
-    add_theoretical_price(fig, scaled_time_points, call_theoretical_price, 'Call', 1, 1)
-    add_theoretical_price(fig, scaled_time_points, put_theoretical_price, 'Put', 1, 2)
-    add_theoretical_price(fig, scaled_time_points, strike_price, 'Strike', 2, 1)
-
-    # Update layout
-    x_axis_title = f'Time ({time_unit})'
-    update_figure_layout(fig, x_axis_title)
-
-    # Calculate statistics
+    # Calculate probabilities
     final_stock_prices = paths[:, -1]
     final_call_prices = call_prices[:, -1]
     final_put_prices = put_prices[:, -1]
+
+    # Filter out zero prices for histogram visualization
+    final_call_prices_filtered = final_call_prices[final_call_prices > 0]
+    final_put_prices_filtered = final_put_prices[final_put_prices > 0]
+
+    # Dynamically set x-axis range for call histogram
+    if len(final_call_prices_filtered) > 0: 
+        call_x_min = np.percentile(final_call_prices_filtered, 1)
+        call_x_max = np.percentile(final_call_prices_filtered, 99)
+    else:
+        call_x_min = 0
+        call_x_max = 1 
+
+    # Dynamically set x-axis range for put histogram
+    if len(final_put_prices_filtered) > 0: 
+        put_x_min = np.percentile(final_put_prices_filtered, 1)
+        put_x_max = np.percentile(final_put_prices_filtered, 99)
+    else:
+        put_x_min = 0
+        put_x_max = 1 
+
+    # Define number of histogram bins
+    num_histogram_bins = 15 # Set to 15 buckets
+
+    # Calculate specific bin sizes for call and put
+    call_bin_size = (call_x_max - call_x_min) / num_histogram_bins if (call_x_max - call_x_min) > 0 else 1
+    put_bin_size = (put_x_max - put_x_min) / num_histogram_bins if (put_x_max - put_x_min) > 0 else 1
+
+    # Define xbins for call and put separately
+    call_xbins = dict(start=call_x_min, end=call_x_max, size=call_bin_size)
+    put_xbins = dict(start=put_x_min, end=put_x_max, size=put_bin_size)
 
     call_itm_count = np.sum(final_stock_prices > strike_price)
     put_itm_count = np.sum(final_stock_prices < strike_price)
@@ -193,6 +201,97 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     discounted_put_price = np.mean(np.maximum(strike_price - final_stock_prices, 0)) * np.exp(-risk_free_rate * time_to_exp)
     undiscounted_call_price = np.mean(np.maximum(final_stock_prices - strike_price, 0))
     undiscounted_put_price = np.mean(np.maximum(strike_price - final_stock_prices, 0))
+
+    # Create figure
+    fig = create_base_figure(call_prob_itm=call_prob_itm, put_prob_itm=put_prob_itm)
+    colors = plotly.colors.qualitative.Plotly
+
+    # Add paths and bounds for each subplot
+    add_option_paths(fig, scaled_time_points, representative_paths, paths, 'Stock', 1, 1, colors)
+    add_option_paths(fig, scaled_time_points, representative_call_prices, call_prices, 'Call', 2, 1, colors)
+    add_option_paths(fig, scaled_time_points, representative_put_prices, put_prices, 'Put', 2, 2, colors)
+
+    add_average_path(fig, scaled_time_points, paths, 'Average Stock Price', 1, 1)
+    add_average_path(fig, scaled_time_points, call_prices, 'Average Call Price', 2, 1)
+    add_average_path(fig, scaled_time_points, put_prices, 'Average Put Price', 2, 2)
+
+    add_confidence_intervals(fig, scaled_time_points, stock_lower_bound, stock_upper_bound, 'Stock', 1, 1)
+    add_confidence_intervals(fig, scaled_time_points, call_lower_bound, call_upper_bound, 'Call', 2, 1)
+    add_confidence_intervals(fig, scaled_time_points, put_lower_bound, put_upper_bound, 'Put', 2, 2)
+
+    add_theoretical_price(fig, scaled_time_points, strike_price, 'Strike', 1, 1)
+    add_theoretical_price(fig, scaled_time_points, call_theoretical_price, 'Call', 2, 1)
+    add_theoretical_price(fig, scaled_time_points, put_theoretical_price, 'Put', 2, 2)
+
+    # Update layout
+    x_axis_title = f'Time ({time_unit})'
+    update_figure_layout(fig, x_axis_title)
+
+    # Update x-axes for price evolution plots (now in row 2)
+    fig.update_xaxes(range=[0, time_value], fixedrange=False, minallowed=0, maxallowed=time_value, row=2, col=1)
+    fig.update_xaxes(range=[0, time_value], fixedrange=False, minallowed=0, maxallowed=time_value, row=2, col=2)
+
+    # Update y-axes for price evolution plots (now in row 2)
+    call_y_min = np.min(representative_call_prices)
+    call_y_max = np.max(representative_call_prices)
+    call_ci_min = np.min(call_lower_bound)
+    call_ci_max = np.max(call_upper_bound)
+    call_y_range = [min(0, call_y_min * 0.8, call_theoretical_price * 0.8, call_ci_min * 0.8),
+                   max(call_y_max * 1.2, call_theoretical_price * 1.2, call_ci_max * 1.2)]
+    fig.update_yaxes(title_text='Call Option Price ($)', row=2, col=1, range=call_y_range)
+
+    put_y_min = np.min(representative_put_prices)
+    put_y_max = np.max(representative_put_prices)
+    put_ci_min = np.min(put_lower_bound)
+    put_ci_max = np.max(put_upper_bound)
+    put_y_range = [min(0, put_y_min * 0.8, put_theoretical_price * 0.8, put_ci_min * 0.8),
+                  max(put_y_max * 1.2, put_theoretical_price * 1.2, put_ci_max * 1.2)]
+    fig.update_yaxes(title_text='Put Option Price ($)', row=2, col=2, range=put_y_range)
+
+    # Update y-axis for stock price (now in row 1)
+    stock_y_min = np.min(representative_paths)
+    stock_y_max = np.max(representative_paths)
+    stock_ci_min = np.min(stock_lower_bound)
+    stock_ci_max = np.max(stock_upper_bound)
+    stock_y_range = [min(0, stock_y_min * 0.8, strike_price * 0.8, stock_ci_min * 0.8),
+                    max(stock_y_max * 1.2, strike_price * 1.2, stock_ci_max * 1.2)]
+    fig.update_yaxes(title_text='Stock Price ($)', row=1, col=1, range=stock_y_range)
+
+    # Apply range constraints to the stock path x-axis (row 1, col 1)
+    fig.update_xaxes(range=[0, time_value], fixedrange=False, minallowed=0, maxallowed=time_value, row=1, col=1)
+
+    # Add histograms for final option prices (remain in row 3)
+    fig.add_trace(
+        go.Histogram(
+            x=final_call_prices, # Use unfiltered data
+            name='Final Call Price Distribution', # Updated name
+            marker_color='blue', 
+            opacity=0.75,
+            hovertemplate='Price: %{x}<br>Frequency: %{y:.2f}%<extra></extra>',
+            xbins=call_xbins, # Use specific xbins for call
+            histnorm='percent' # Normalize to show percentages
+        ),
+        row=3, col=1
+    )
+
+    fig.update_xaxes(title_text='Final Call Price ($)', row=3, col=1, range=[call_x_min, call_x_max])
+    fig.update_yaxes(title_text='Frequency (%)', row=3, col=1)
+
+    fig.add_trace(
+        go.Histogram(
+            x=final_put_prices, # Use unfiltered data
+            name='Final Put Price Distribution', # Updated name
+            marker_color='orange', 
+            opacity=0.75,
+            hovertemplate='Price: %{x}<br>Frequency: %{y:.2f}%<extra></extra>',
+            xbins=put_xbins, # Use specific xbins for put
+            histnorm='percent' # Normalize to show percentages
+        ),
+        row=3, col=2
+    )
+
+    fig.update_xaxes(title_text='Final Put Price ($)', row=3, col=2, range=[put_x_min, put_x_max])
+    fig.update_yaxes(title_text='Frequency (%)', row=3, col=2)
 
     return fig, call_theoretical_price, call_mc_price, put_theoretical_price, put_mc_price, \
            call_prob_itm, put_prob_itm, final_stock_ci_lower, final_stock_ci_upper, \
