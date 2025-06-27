@@ -68,14 +68,16 @@ def add_confidence_intervals(fig, time_points, lower_bound, upper_bound, name, r
         row=row, col=col
     )
 
-def add_theoretical_price(fig, time_points, price, name, row, col):
+def add_theoretical_price(fig, time_points, price, name, row, col, custom_label=None):
     """Add theoretical price line to the figure."""
+    label = custom_label if custom_label is not None else f'Theoretical {name} Price'
+    hover = custom_label if custom_label is not None else f'Theoretical {name} Price'
     fig.add_trace(
         go.Scatter(
             x=time_points, y=np.full_like(time_points, price),
-            mode='lines', name=f'Theoretical {name} Price',
+            mode='lines', name=label,
             line=dict(color='green', dash='dash', width=2),
-            hovertemplate=f'<b>Theoretical {name} Price</b><br>Time: %{{x:.2f}} years<br>Price: $%{{y:.2f}}<extra></extra>'
+            hovertemplate=f'<b>{hover}</b><br>Time: %{{x:.2f}} years<br>Price: $%{{y:.2f}}<extra></extra>'
         ),
         row=row, col=col
     )
@@ -223,7 +225,7 @@ def make_plot(vol=0.5, underlying_price=100, strike_price=110, time_to_exp=1, ri
     add_confidence_intervals(fig, scaled_time_points, call_lower_bound, call_upper_bound, 'Call', 2, 1)
     add_confidence_intervals(fig, scaled_time_points, put_lower_bound, put_upper_bound, 'Put', 2, 2)
 
-    add_theoretical_price(fig, scaled_time_points, strike_price, 'Strike', 1, 1)
+    add_theoretical_price(fig, scaled_time_points, strike_price, 'Strike', 1, 1, custom_label='Strike Price')
     add_theoretical_price(fig, scaled_time_points, call_theoretical_price, 'Call', 2, 1)
     add_theoretical_price(fig, scaled_time_points, put_theoretical_price, 'Put', 2, 2)
 
