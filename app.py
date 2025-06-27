@@ -331,7 +331,7 @@ def main():
 
     with st.sidebar.form("input_form"):
         # Input parameters
-        vol = st.slider("Volatility", min_value=0.01, max_value=2.0, value=0.5, step=0.01)
+        vol = st.slider("Volatility", min_value=0.01, max_value=1.0, value=0.5, step=0.01)
         underlying_price = st.number_input("Underlying Price ($)", min_value=1.0, value=100.0, step=1.0)
         strike_price = st.number_input("Strike Price ($)", min_value=1.0, value=110.0, step=1.0)
         time_value = st.number_input("Time Value", min_value=0.01, value=1.0, step=0.01)
